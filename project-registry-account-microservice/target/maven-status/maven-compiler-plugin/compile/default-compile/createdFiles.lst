@@ -1,0 +1,13 @@
+com\revature\registry\repository\AccountRepository.class
+com\revature\registry\model\Iteration.class
+com\revature\registry\controller\AccountController.class
+com\revature\registry\model\Organization.class
+com\revature\registry\model\Status.class
+com\revature\registry\AccountMicroServiceApplication.class
+com\revature\registry\model\Repository.class
+com\revature\registry\model\Tag.class
+com\revature\registry\model\Phase.class
+com\revature\registry\service\AccountService.class
+com\revature\registry\model\Project.class
+com\revature\registry\model\Role.class
+com\revature\registry\model\Account.class
