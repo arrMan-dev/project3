@@ -1,0 +1,9 @@
+package com.revature.registry.repository;
+
+import com.revature.registry.model.Project;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface ProjectRepository extends JpaRepository<Project, Integer>{
+
+}

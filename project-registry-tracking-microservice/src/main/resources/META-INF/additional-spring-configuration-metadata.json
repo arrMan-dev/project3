@@ -1,0 +1,22 @@
+{"properties": [
+  {
+    "name": "spring.cloud.discovery.hostname",
+    "type": "java.lang.String",
+    "description": "A description for 'spring.cloud.discovery.hostname'"
+  },
+  {
+    "name": "spring.cloud.discovery.port",
+    "type": "java.lang.String",
+    "description": "A description for 'spring.cloud.discovery.port'"
+  },
+  {
+    "name": "spring.cloud.consul.config.enabled",
+    "type": "java.lang.String",
+    "description": "A description for 'spring.cloud.consul.config.enabled'"
+  },
+  {
+    "name": "spring.cloud.consul.config.enabled",
+    "type": "java.lang.String",
+    "description": "A description for 'spring.cloud.consul.config.enabled'"
+  }
+]}
