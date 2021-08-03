@@ -1,0 +1,47 @@
+server:
+    port : 8085
+
+spring:
+  application.name: gateway_microservice
+  cloud:
+    config:
+      discovery:
+        enabled: true
+        service-id: config
+
+    consul:
+      host: localhost
+      port: 8500
+      discovery:
+        prefer-ip-address: true
+    
+    gateway:
+      # CORS shouldn't be an issue in the dev/staging environments,
+      # but this is here so a local instance of the frontend can
+      # connect to the dev cluster
+      globalcors:
+        corsConfigurations:
+          '[/**]':
+            allowedOrigins: "http://localhost:4200"
+            allowedMethods:
+            - GET
+            - POST
+            - PUT
+            - DELETE
+            allowedHeaders:
+            - content-type
+      routes:
+        - id: account
+          uri: lb://account-microservice
+          predicates:
+            - Path=/api/account/**
+        
+        - id: project
+          uri: lb://project-microservice
+          predicates:
+            - Path=/api/project/**, /api/organization/**, /api/tag/**
+        
+        - id: tracking
+          uri: lb://tracking-microservice
+          predicates:
+            - Path=/api/status**, /api/phase/**,/api/iteration/**

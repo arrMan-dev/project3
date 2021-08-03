@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: account
+spec:
+  selector:
+    matchLabels:
+      app: account
+  template:
+    metadata:
+      labels:
+        app: account
+    spec:
+      imagePullSecrets:
+      - name: acr-secret
+      containers:
+      - name: account
+        image: 'may24devopscontainers.azurecr.io/project-registry-account-microservice:0.0.1-SNAPSHOT'
+        resources:
+          requests:
+            memory: "850Mi"
+            cpu: "175m"
+          limits:
+            memory: "1024Mi"
+            cpu: "200m"
+        ports:
+        - containerPort: 8081
+        env:
+        - name: SPRING_CLOUD_CONSUL_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: project-configmap
+              key: SPRING_CLOUD_CONSUL_HOST
+        - name: SPRING_APPLICATION_NAME
+          value: account-microservice
+        - name: SPRING_CLOUD_CONSUL_DISCOVERY_HOSTNAME
+          value: account-microservice
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: account
+spec:
+  selector:
+    app: account
+  ports:
+  - port: 8081
+    targetPort: 8081
+

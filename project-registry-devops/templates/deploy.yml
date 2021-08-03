@@ -1,0 +1,54 @@
+# This template will apply the specified manifest to the specified cluster
+
+parameters:
+
+# project configuration parameters:
+- name: containerRegistry # <-- The container registry service connection name from which images
+  type: string            #     are pulled in the k8s manifest
+- name: cluster           # <-- The service connection for the cluster
+  type: string
+- name: namespace         # <-- the namespace within the cluster where the manifest will be applied
+  type: string
+- name: manifest          # <-- relative or absolute path to the kubernetes manafest to be applied
+  type: string            #     (e.g., './k8s/microservices/gateway.yml')
+
+# external access parameters:
+- name: discordChannel
+  type: string
+- name: discordKey
+  type: string
+
+steps:
+  - task: KubernetesManifest@0
+    inputs:
+      action: 'createSecret'
+      kubernetesServiceConnection: ${{ parameters.cluster }}
+      namespace: ${{ parameters.namespace }}
+      secretType: 'dockerRegistry'
+      secretName: 'acr-secret'
+      dockerRegistryEndpoint: ${{ parameters.containerRegistry }}
+    displayName: set imagePullSecret on cluster
+
+  - task: KubernetesManifest@0
+    inputs:
+      action: 'deploy'
+      kubernetesServiceConnection: ${{ parameters.cluster }}
+      namespace: ${{ parameters.namespace }}
+      manifests: ${{ parameters.manifest }}
+    displayName: Dev - apply ${{ parameters.manifest }} to cluster
+
+  - task: 'ado-discord-webhook@1' # <-- See external requirements note above
+    condition: always()
+    inputs:
+      channelId: ${{ parameters.discordChannel }}
+      webhookKey: ${{ parameters.discordKey }}
+      name: '$(System.TeamProject) Deployment - $(Build.BuildId)'
+      avatar: 'https://thagomizer.com/img/kubernetes-logo.png'
+      messageType: 'content'
+      content: | 
+        **__Deployment Report__**
+        **Status:** $(Agent.JobStatus)
+        **Cluster:** ${{ parameters.cluster }}
+        **Namespace:** ${{ parameters.namespace }}
+        **Manifest:**  ${{ parameters.manifest }}
+    displayName: Notification --> Task

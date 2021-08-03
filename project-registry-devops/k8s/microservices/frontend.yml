@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+spec:
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      imagePullSecrets:
+        - name: acr-secret
+      containers:
+      - name: frontend
+        image: 'may24devopscontainers.azurecr.io/project-registry-frontend:0.0.0'
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "125m"
+        ports:
+        - containerPort: 4200
+        env:
+        - name: REGISTRY_URL
+          valueFrom:
+            configMapKeyRef:
+              name: project-configmap
+              key: REGISTRY_URL
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+spec:
+  type: LoadBalancer
+  selector:
+    app: frontend
+  ports:
+  - port: 4200
+    targetPort: 80
+

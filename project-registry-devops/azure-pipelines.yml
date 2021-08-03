@@ -1,0 +1,56 @@
+# This pipeline is NEVER triggered automatically.
+# This pipeline is used for initialization of a new (or cleared) kubernetes cluster.
+# Running this pipeline unnecessarily may cause the ingress IP address to reset.
+# The ingress IP address is how you access the application, so...
+# BE CAREFUL!!!
+trigger: none
+pr: none
+
+pool:
+  vmImage: ubuntu-latest
+
+parameters:
+# to initialize the staging environment k8sServiceConnection should be 'k8s-team1-config-staging'
+# to initialize the development environment k8sServiceConnection should be 'k8s-team1-config-dev'
+- name: k8sServiceConnection
+  type: string
+  default: 'k8s-team1-config-dev'
+  values:
+  - 'k8s-team1-config-dev'
+  - 'k8s-team1-config-staging'
+
+variables:
+  containerServiceConnection: 'acr-team1'         # <-- the service connection for the container registry
+  namespace: 'team1'                              # <-- the application's k8s namespace
+  prereqManifestPath: 'k8s/prerequisites/*'       # <-- the path to the directory that contains the
+                                                  #     manifests for the cluster prerequisites
+  microserviceManifestPath: 'k8s/microservices/*' # <-- the path to the directory that contains the
+                                                  #     manifests for the application microservice manifests
+
+steps:
+
+- task: KubernetesManifest@0
+  inputs:
+    action: 'createSecret'
+    kubernetesServiceConnection: ${{ parameters.k8sServiceConnection }}
+    namespace: ${{ variables.namespace }}
+    secretType: 'dockerRegistry'
+    secretName: 'acr-secret'
+    dockerRegistryEndpoint: ${{ variables.containerServiceConnection }}
+  displayName: set imagePullSecret on cluster
+
+- task: KubernetesManifest@0
+  inputs:
+    action: 'deploy'
+    kubernetesServiceConnection: ${{ parameters.k8sServiceConnection }}
+    namespace: ${{ variables.namespace }}
+    manifests: ${{ variables.prereqManifestPath }}
+  displayName: initialize cluster prerequisites
+
+- task: KubernetesManifest@0
+  inputs:
+    action: 'deploy'
+    kubernetesServiceConnection: ${{ parameters.k8sServiceConnection }}
+    namespace: ${{ variables.namespace }}
+    manifests: ${{ variables.microserviceManifestPath }}
+  displayName: initialize cluster microservices

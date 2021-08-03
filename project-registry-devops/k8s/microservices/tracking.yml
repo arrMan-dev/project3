@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tracking
+spec:
+  selector:
+    matchLabels:
+      app: tracking
+  template:
+    metadata:
+      labels:
+        app: tracking
+    spec:
+      imagePullSecrets:
+        - name: acr-secret
+      containers:
+      - name: tracking
+        image: 'may24devopscontainers.azurecr.io/project-registry-tracking-microservice:0.0.1-SNAPSHOT'
+        resources:
+          requests:
+            memory: "850Mi"
+            cpu: "175m"
+          limits:
+            memory: "1024Mi"
+            cpu: "200m"
+        ports:
+        - containerPort: 8083
+        env:
+        - name: SPRING_CLOUD_CONSUL_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: project-configmap
+              key: SPRING_CLOUD_CONSUL_HOST
+        - name: SPRING_APPLICATION_NAME
+          value: tracking-microservice
+        - name: SPRING_CLOUD_CONSUL_DISCOVERY_HOSTNAME
+          value: tracking-microservice
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: tracking
+spec:
+  selector:
+    app: tracking
+  ports:
+  - port: 8083
+    targetPort: 8083
+

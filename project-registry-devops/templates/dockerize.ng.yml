@@ -1,0 +1,95 @@
+parameters:
+- name: imageName                   # <-- e.g., project-registry-frontend
+  type: string
+- name: containerRepo               # <-- e.g., myproject.azurecr.io, myDockerHub
+  type: string
+- name: containerServiceConnection  # <-- name of the service connection associated
+  type: string                      #     with the above repo
+- name: containerUrl                # <-- URL to the associated repo
+  type: string
+  default: "public link unavailable"
+- name: version                     # <-- you should only use this parameter if the value of
+  type: string                      #     useDynamicVersion is set to false, otherwise it is 
+  default: undefined                #     overwritten dynamically from package.json using a script
+- name: useDynamicVersion           # <-- if this is set to true then it will use the value
+  type: boolean                     #     specified by parameters.version rather than the version
+  default: true                     #     pulled from the package.json file (default behavior)
+- name: workDir                     # <-- absolute or relative path to the package.json file
+  type: string                      #     this is only used when useDynamicVersioning is true
+  default: "./"                     #     this value expects a trailing '/' character
+
+# external access parameters:
+- name: discordChannel
+  type: string
+- name: discordKey
+  type: string
+
+steps:
+- ${{ if eq(parameters.useDynamicVersion, true) }}:
+  # script explanation: https://gist.github.com/DarrenN/8c6a5b969481725a4413
+  - script: |
+      # Version key/value should be on its own line
+      VERSION=$(cat package.json | grep version | head -1 | awk -F: '{ print $2 }' | sed 's/[",]//g' | tr -d '[[:space:]]')
+      echo found angular package version: $VERSION
+      echo "##vso[task.setvariable variable=version]$VERSION"
+    workingDirectory: ${{ parameters.workDir }}
+    displayName: Extract Angular Package Version --> Task
+
+  - task: Docker@2
+    inputs:
+      containerRegistry: ${{ parameters.containerServiceConnection }}
+      repository: '${{ parameters.imageName }}'
+      command: 'buildAndPush'
+      Dockerfile: '**/Dockerfile'
+      tags: '$(version)'
+    displayName: Dockerize ${{ parameters.imageName }} and push --> Task
+
+  - task: ado-discord-webhook@1
+    condition: always()
+    inputs:
+      channelId: ${{ parameters.discordChannel }}
+      webhookKey: ${{ parameters.discordKey }}
+      name: '$(System.TeamProject) Dockerize - $(Build.BuildId)'
+      avatar: 'https://about.gitlab.com/images/devops-tools/azure-cr-logo.png'
+      messageType: 'content'
+      content: |
+        **__Dockerization Report__**
+        **Status:** $(Agent.JobStatus)
+        **Branch:** $(Build.SourceBranch)
+        **Trigger:** $(Build.Reason)
+        **Message:** $(Build.SourceVersionMessage)
+        **Image:** ${{ parameters.imageName }}:$(version)
+        **Container Repo:** <${{ parameters.containerUrl }}>
+        **Logs:** <$(System.CollectionUri)$(System.TeamProject)/_build/results?buildId=$(Build.BuildId)&view=logs>
+        **Repo:** <$(Build.Repository.Uri)/tree/$(Build.SourceBranchName)>
+    displayName: Notification --> Task
+
+  - ${{ if eq(parameters.useDynamicVersion, false) }}:
+    - task: Docker@2
+      inputs:
+        containerRegistry: ${{ parameters.containerServiceConnection }}
+        repository: '${{ parameters.imageName }}'
+        command: 'buildAndPush'
+        Dockerfile: '**/Dockerfile'
+        tags: ${{ parameters.version }}
+      displayName: Dockerize ${{ parameters.imageName }} and push --> Task
+    
+    - task: ado-discord-webhook@1
+      condition: always()
+      inputs:
+        channelId: ${{ parameters.discordChannel }}
+        webhookKey: ${{ parameters.discordKey }}
+        name: '$(System.TeamProject) Dockerize - $(Build.BuildId)'
+        avatar: 'https://about.gitlab.com/images/devops-tools/azure-cr-logo.png'
+        messageType: 'content'
+        content: |
+          **__Dockerization Report__**
+          **Status:** $(Agent.JobStatus)
+          **Branch:** $(Build.SourceBranch)
+          **Trigger:** $(Build.Reason)
+          **Message:** $(Build.SourceVersionMessage)
+          **Image:** ${{ parameters.imageName }}:${{ parameters.version }}
+          **Container Repo:** <${{ parameters.containerUrl }}>
+          **Logs:** <$(System.CollectionUri)$(System.TeamProject)/_build/results?buildId=$(Build.BuildId)&view=logs>
+          **Repo:** <$(Build.Repository.Uri)/tree/$(Build.SourceBranchName)>
+      displayName: Notification --> Task

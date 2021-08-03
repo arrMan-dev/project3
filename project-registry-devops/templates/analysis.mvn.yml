@@ -1,0 +1,98 @@
+# This template is specifically for conducting static analysis of JDK 11 Maven builds using SonarCloud
+
+parameters:
+
+  # project configuration parameters:
+- name: microservice  # <-- e.g., gateway, account-microservice
+  type: string
+- name: workDir       # <-- allow override to sub-directory if needed
+  type: string        #     it requires the trailing '/' character
+  default: './'
+- name: coveragePath  # <-- may override the coverage path if desired
+  type: string
+  default: ''
+
+  # external access parameters:
+- name: sonarKeyPrefix
+  type: string
+- name: sonarNamePrefix
+  type: string
+- name: sonarOrg
+  type: string
+- name: sonarUrlPrefix
+  type: string
+- name: discordChannel
+  type: string
+- name: discordKey
+  type: string
+
+steps:
+- task: SonarCloudPrepare@1 # <-- See external requirements note above
+  inputs:
+    SonarCloud: 'SonarCloud'
+    organization: ${{ parameters.sonarOrg }}
+    scannerMode: 'Other'
+    extraProperties: |
+      sonar.projectKey=${{ parameters.sonarKeyPrefix }}${{ parameters.microservice }}
+      sonar.projectName=${{ parameters.sonarNamePrefix }}${{ parameters.microservice }}
+  displayName: Prepare Analysis for ${{ parameters.microservice }} --> Task
+
+- task: 'Maven@3'
+  inputs:
+    mavenPomFile: ${{ parameters.workDir }}pom.xml
+    publishJUnitresults: true
+    testResultsFiles: '**/surefire-reports/TEST-*.xml'
+    codeCoverageToolOption: 'JaCoCo'
+    codeCoverageClassFilesDirectories: ${{ parameters.coveragePath }}
+    javaHomeOption: 'JDKVersion'
+    jdkVersionOption: '1.11'
+    mavenVersionOption: 'Default'
+    mavenOptions: '-Xmx3072m'
+    mavenAuthenticateFeed: false
+    effectivePomSkip: false
+    sonarQubeRunAnalysis: true
+    sqMavenPluginVersionChoice: 'latest'
+  displayName: Build/Analyze ${{ parameters.microservice }} --> Task
+
+- task: SonarCloudPublish@1
+  condition: always()
+  inputs:
+    pollingTimeoutSec: '300'
+  displayName: Publish Analysis of ${{ parameters.microservice }} --> Task
+
+- task: 'ado-discord-webhook@1' # <-- See external requirements note above
+  condition: and(always(), ne(variables['Build.Reason'],'PullRequest'))
+  inputs:
+    channelId: ${{ parameters.discordChannel }}
+    webhookKey: ${{ parameters.discordKey }}
+    name: '$(System.TeamProject) Analysis - $(Build.BuildId)'
+    avatar: 'https://avatars2.githubusercontent.com/u/39168408?s=460&v=4'
+    messageType: 'content'
+    content: | 
+      **__Analysis Report__**
+      **Status:** $(Agent.JobStatus)
+      **Branch:** $(Build.SourceBranch)
+      **Trigger:** $(Build.Reason)
+      **Message:** $(Build.SourceVersionMessage)
+      **Report:** <${{ parameters.sonarUrlPrefix }}$(Build.SourceBranchName)&id=${{ parameters.sonarKeyPrefix }}${{ parameters.microservice }}>
+      **Logs:** <$(System.CollectionUri)$(System.TeamProject)/_build/results?buildId=$(Build.BuildId)&view=logs>
+      **Repo:** <$(Build.Repository.Uri)/tree/$(Build.SourceBranchName)>
+  displayName: Notification --> Task
+
+- task: 'ado-discord-webhook@1' # <-- See external requirements note above
+  condition: and(always(), eq(variables['Build.Reason'],'PullRequest'))
+  inputs:
+    channelId: ${{ parameters.discordChannel }}
+    webhookKey: ${{ parameters.discordKey }}
+    name: '$(System.TeamProject) PR Analysis - $(Build.BuildId)'
+    avatar: 'https://github.com/jpbulloch5/jpbulloch5.github.io/blob/main/GitHubPR.png?raw=true'
+    messageType: 'content'
+    content: | 
+      **__PR Analysis Report__**
+      **Status:** $(Agent.JobStatus)
+      **Report:** <${{ parameters.sonarUrlPrefix }}$(System.PullRequest.SourceBranch)&id=${{ parameters.sonarKeyPrefix }}${{ parameters.microservice }}>
+      **Logs:** <$(System.CollectionUri)$(System.TeamProject)/_build/results?buildId=$(Build.BuildId)&view=logs>
+      **Source:** <$(Build.Repository.Uri)/tree/$(System.PullRequest.SourceBranch)>
+      **Target:** <$(Build.Repository.Uri)/tree/$(System.PullRequest.TargetBranch)>
+      **Pulls:** <$(System.PullRequest.SourceRepositoryURI)/pulls>
+  displayName: PR Notification --> Task
